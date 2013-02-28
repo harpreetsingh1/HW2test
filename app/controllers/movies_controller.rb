@@ -1,4 +1,5 @@
 class MoviesController < ApplicationController
+  helper_method :ratings_filter, :sort_column
 
   def show
     id = params[:id] # retrieve movie ID from URI route
@@ -7,7 +8,28 @@ class MoviesController < ApplicationController
   end
 
   def index
-    @movies = Movie.all
+    redirect = false
+    if params[:ratings] != ratings_filter
+      redirect = true
+    end
+    if params[:sort] != sort_column
+      redirect = true
+    end
+
+    if session[:ratings] != ratings_filter
+      session[:ratings] = ratings_filter
+    end
+    if session[:sort] != sort_column
+      session[:sort] = sort_column
+    end
+
+    if redirect
+      flash.keep
+      redirect_to movies_path(:sort => session[:sort], :ratings => session[:ratings])
+    else
+      @all_ratings = Movie.ratings
+      @movies = Movie.find_by_ratings_and_order params[:ratings].keys, sort_column
+    end
   end
 
   def new
@@ -38,4 +60,19 @@ class MoviesController < ApplicationController
     redirect_to movies_path
   end
 
+  private
+
+  def ratings_filter
+    if params[:ratings]
+      params[:ratings]
+    elsif !session[:ratings]
+      Hash[Movie.ratings.map { |x| [x, 1] }]
+    else
+      session[:ratings]
+    end
+  end
+
+  def sort_column
+    Movie.column_names.include?(params[:sort]) ? params[:sort] : session[:sort]
+  end
 end
